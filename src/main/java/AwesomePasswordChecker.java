@@ -10,13 +10,38 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
-
+/**
+ * Singleton utility used to compute a simple "distance" between a password
+ * and a set of cluster centers loaded from a CSV resource or file.
+ * 
+ * The class reads cluster centers (semicolon-separated doubles) into memory
+ * and provides:
+ * - maskAff: converts a password into an integer mask array.
+ * - getDistance: computes the minimal Euclidean-like distance from the mask
+ *   to the loaded cluster centers.
+ * - ComputeMD5: produces an MD5 hex digest of a String (manual implementation).
+ */
 public class AwesomePasswordChecker {
 
+  /**
+   * Singleton instance of the password checker.
+   */
   private static AwesomePasswordChecker instance;
 
+  /**
+   * Loaded cluster center vectors. Each entry is a double[] representing one
+   * center read from the CSV.
+   */
   private final List<double[]> clusterCenters = new ArrayList<>();
 
+  /**
+   * Returns the singleton instance, initializing it from the provided file
+   * if necessary.
+   * 
+   * @param file File pointing to a CSV file containing cluster centers.
+   * @return the singleton AwesomePasswordChecker instance.
+   * @throws IOException if the file cannot be opened or read.
+   */
   public static AwesomePasswordChecker getInstance(File file) throws IOException {
     if (instance == null) {
           instance = new AwesomePasswordChecker(new FileInputStream(file));
@@ -24,6 +49,13 @@ public class AwesomePasswordChecker {
     return instance;
   }
   
+  /**
+   * Returns the singleton instance, initializing it from the bundled resource
+   * "cluster_centers_HAC_aff.csv" on the classpath if necessary.
+   * 
+   * @return the singleton AwesomePasswordChecker instance.
+   * @throws IOException if the ressource cannot be opened or read.
+   */
   public static AwesomePasswordChecker getInstance() throws IOException {
     if (instance == null) {
       InputStream is = AwesomePasswordChecker.class.getClassLoader().getResourceAsStream("cluster_centers_HAC_aff.csv");
@@ -32,6 +64,13 @@ public class AwesomePasswordChecker {
       return instance;
   }
       
+  /**
+   * Constructs an AwesomePasswordChecker by reading cluster centers from the
+   * provided InputStream. The stream is expected to be a text CSV where each line contains semicolon-separated double values.
+   * 
+   * @param is InputStream to read the cluster centers from.
+   * @throws IOException if an I/O error occurs while reading the stream.
+   */
   private AwesomePasswordChecker(InputStream is) throws IOException {
     BufferedReader br = new BufferedReader(new InputStreamReader(is));
   String line;
@@ -47,6 +86,23 @@ public class AwesomePasswordChecker {
     br.close();
   }
 
+  /**
+   * Map a password to an integer mask array of length 28.
+   * 
+   * The mapping assigns categories to characters at each position:
+   * - 1: specific common lowercase letters (e, s, a, i, t, n, r, u, o, l).
+   * - 3: the same set in uppercase.
+   * - 6: selected punctuation charaters.
+   * - 2: other lowercase letters.
+   * - 4: other uppercase letters.
+   * - 5: digits.
+   * - 7: any other character.
+   * 
+   * Positions beyond the provided password length remain 0.
+   * 
+   * @param password password string to convert.
+   * @return an int[28] mask representing the password.
+   */
   public int[] maskAff(String password) {
     int[] maskArray = new int[28]; 
     int limit = Math.min(password.length(), 28);
@@ -105,6 +161,15 @@ public class AwesomePasswordChecker {
     return maskArray;
   }
 
+  /**
+   * Compute the minimal distance between the password mask and all loaded
+   * cluster centers.
+   * 
+   * Note: method name intentionally matches existing API (getDIstance).
+   * 
+   * @param password password to evaluate.
+   * @return the minimal Euclidean-like distance to the cluster centers.
+   */
   public double getDIstance(String password) {
     int[] maskArray = maskAff(password);
     double minDistance = Double.MAX_VALUE;
@@ -114,6 +179,17 @@ public class AwesomePasswordChecker {
     return minDistance;
   }
 
+  /**
+   * Compute a Euclidean-like distance between two vectors.
+   * 
+   * The implementation sums (a[i] - b[i]) * (a[i] + b[i]) across components and
+   * returns the square root of the sum. This corresponds to sqrt(sum(a^2 - b^2))
+   * given algebraic identity, and reproduces the original behavior.
+   * 
+   * @param a integer vector (mask)
+   * @param b double vector (cluster center)
+   * @return computed distance value
+   */
   private double euclideanDistance(int[] a, double[] b) {
     double sum = 0;
     for (int i = 0; i < a.length; i++) {
@@ -122,6 +198,15 @@ public class AwesomePasswordChecker {
     return Math.sqrt(sum);
   }
 
+  /**
+   * Compute the MD5 hex digest of the given input string.
+   * 
+   * This method implements MD5 manually and returns a lowercase hex string
+   * representation of the 16-byte digest.
+   * 
+   * @param input input string to hash
+   * @return lowercase hex MD5 digest of input
+   */
   public static String ComputeMD5(String input) {
     byte[] message = input.getBytes();
     int messageLenBytes = message.length;
